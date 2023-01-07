@@ -1,0 +1,40 @@
+#!/usr/bin/perl
+
+use warnings;
+use strict;
+
+require '/Users/rhys/scripts/dmachine/private/share.pl';
+
+our $CM;
+our $user;
+our $display;
+
+sub getIp {
+	return 'host.docker.internal';
+}
+
+sub enter {
+	my ($name, $toRun, $interactive) = @_;
+
+	my $ip = getIp();
+
+	my $it = $interactive? '-it' : '';
+
+	my $cmd = "$CM exec --user $user -e DISPLAY=$ip:$display $it $name $toRun";
+
+	print "$cmd\n";
+
+	system $cmd;
+}
+
+my $containerName = shift or die "Usage: $0 CONTAINER";
+my $cmd = shift;
+
+my $interactive = 0;
+
+if(!$cmd){
+	$cmd='bash';
+	$interactive = 1;
+}
+
+enter $containerName, $cmd, $interactive;

@@ -1,0 +1,63 @@
+#!/usr/bin/perl
+
+use warnings;
+use strict;
+
+use File::Path;
+
+my $BASE = '/Users/rhys/scripts/dmachine/';
+
+require "$BASE/private/share.pl";
+
+our $CM;
+our $user;
+our $display;
+
+my $exe = $0;
+
+sub read_template {
+	my ($template, $name) = @_;
+	open my $fh, '<', $template or die "Can't open file $!";
+	
+	read $fh, my $fileContent, -s $fh;
+
+	$fileContent =~ s/\%name\%/$name/g;
+
+	close $fh;
+
+	return $fileContent;
+}
+
+sub write_str {
+	my ($file, $content) = @_;
+
+	open my $fh, '>', $file or die "Can't open file $!";
+
+	print $fh $content;
+
+	close $fh;
+}
+
+sub make {
+	my ($container, $path, $name, $command) = @_;
+
+	File::Path::make_path("$path/$name.app/Contents/MacOS");
+	File::Path::make_path("$path/$name.app/Contents/Resources");
+
+	write_str("$path/$name.app/Contents/Info.plist", read_template("$BASE/private/Info.plist.template", $name));
+	
+	my $launcherScript = "#!/bin/bash\n$BASE/dm-enter $container '$command'&";
+
+	write_str("$path/$name.app/Contents/MacOS/run", $launcherScript);
+	`chmod +x '$path/$name.app/Contents/MacOS/run'`;
+}
+
+sub usage {
+	return "USAGE: $exe CONTAINER COMMAND APP_NAME";
+}
+
+my $container = shift or die usage();
+my $command = shift or die usage();
+my $name = shift or die usage(); 
+
+make $container, '.', $name, $command;

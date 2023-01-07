@@ -1,0 +1,59 @@
+#!/usr/bin/perl
+
+use warnings;
+use strict;
+
+require '/Users/rhys/scripts/dmachine/private/share.pl';
+
+our $CM;
+our $user;
+
+my $hostname = `hostname`;
+chomp $hostname;
+
+my $exe = $0;
+
+sub getInstallCmds {
+	my ($image) = @_;
+
+	if ($image =~ /rocky.*/ || $image =~ /fedora.*/){
+		return ('dnf', '--version', 'upgrade -y', 'install -y');
+	}
+
+	return ('apt-get', 'update', 'upgrade -y', 'install -y');
+}
+
+sub init {
+	my ($name, $image) = @_;
+
+	my $cmd = "$CM start $name";
+	
+	print "$cmd\n";
+	system $cmd;
+
+	my ($packageManager, $updateCmd, $upgradeCmd, $installCmd) = getInstallCmds($image);
+
+	$cmd = "$CM exec $name sh -c '$packageManager $updateCmd ; $packageManager $upgradeCmd ;$packageManager $installCmd xterm sudo systemd; adduser $user ; echo \"$user ALL=(ALL) NOPASSWD:ALL\" >> /etc/sudoers'";
+	
+	print "$cmd\n";
+	system $cmd;
+}
+
+sub create {
+	my ($name, $image) = @_;	
+
+	my $cmd = "$CM create --net host --hostname $hostname --name $name -v /Users/$user:/home/$user -v /var/run/docker.sock:/var/run/docker.sock -it $image";
+
+	print "$cmd\n";
+	system $cmd;
+}
+
+sub usage {
+	return "Usage: $exe create NAME IMAGE\n";
+} 
+
+my $containerName = shift or die usage();
+my $imageName = shift or die usage();
+
+create $containerName, $imageName;
+init $containerName, $imageName;
