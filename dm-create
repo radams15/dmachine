@@ -11,6 +11,7 @@ my $exe = $0;
 
 our $CM;
 our $user;
+our $uid;
 
 
 my $containerName;
@@ -44,25 +45,25 @@ sub checkedSystem {
 }
 
 sub getInstallCmds {
-	my ($image, $user) = @_;
+	my ($image, $user, $uid) = @_;
 
 	if ($image =~ /rocky.*/ || $image =~ /fedora.*/){
-        return "dnf upgrade -y ; dnf install -y sudo systemd ; useradd $user";
+        return "dnf upgrade -y ; dnf install -y sudo systemd ; useradd -u $uid $user";
 	} elsif ($image =~ /alpine.*/){
-        return "apk update ; apk upgrade ; apk add sudo ; adduser -H -D $user";
+        return "apk update ; apk upgrade ; apk add sudo ; adduser -u $uid -H -D $user";
     }
 
-    return "apt-get update ; apt-get upgrade -y ; apt-get install -y sudo systemd ; useradd $user";
+    return "apt-get update ; apt-get upgrade -y ; apt-get install -y sudo systemd ; useradd -u $uid $user";
 }
 
 sub init {
-	my ($name, $image) = @_;
+	my ($name, $image, $uid) = @_;
 
 	my $cmd = "$CM start $name";
 	
     checkedSystem $cmd;
 
-	my $installCmd = getInstallCmds($image, $user);
+	my $installCmd = getInstallCmds($image, $user, $uid);
 
 	$cmd = "$CM exec $name sh -c '$installCmd ; echo \"$user ALL=(ALL) NOPASSWD:ALL\" >> /etc/sudoers'";
 	
@@ -78,4 +79,4 @@ sub create {
 }
 
 create $containerName, $imageName, $homeDir;
-init $containerName, $imageName;
+init $containerName, $imageName, $uid;
