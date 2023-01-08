@@ -31,7 +31,7 @@ GetOptions(
            'help|h' => sub {print usage(); exit;}
            ) or die 'Error in CLI args\n';
 
-die usage() if !defined($containerName) or !defined($imageName);
+die usage() unless defined($containerName) and defined($imageName);
 
 chomp $hostname;
 
@@ -44,15 +44,15 @@ sub checkedSystem {
 }
 
 sub getInstallCmds {
-	my ($image) = @_;
+	my ($image, $user) = @_;
 
 	if ($image =~ /rocky.*/ || $image =~ /fedora.*/){
-		return ('dnf', '--version', 'upgrade -y', 'install -y');
+        return "dnf upgrade -y ; dnf install -y sudo systemd ; useradd $user";
 	} elsif ($image =~ /alpine.*/){
-        return ('apk', 'update', 'upgrade', 'add');
+        return "apk update ; apk upgrade ; apk add sudo ; adduser -H -D $user";
     }
 
-	return ('apt-get', 'update', 'upgrade -y', 'install -y');
+    return "apt-get update ; apt-get upgrade -y ; apt-get install -y sudo systemd ; useradd $user";
 }
 
 sub init {
@@ -62,9 +62,9 @@ sub init {
 	
     checkedSystem $cmd;
 
-	my ($packageManager, $updateCmd, $upgradeCmd, $installCmd) = getInstallCmds($image);
+	my $installCmd = getInstallCmds($image, $user);
 
-	$cmd = "$CM exec $name sh -c '$packageManager $updateCmd ; $packageManager $upgradeCmd ;$packageManager $installCmd xterm sudo systemd; useradd $user ; echo \"$user ALL=(ALL) NOPASSWD:ALL\" >> /etc/sudoers'";
+	$cmd = "$CM exec $name sh -c '$installCmd ; echo \"$user ALL=(ALL) NOPASSWD:ALL\" >> /etc/sudoers'";
 	
     checkedSystem $cmd;
 }

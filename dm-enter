@@ -3,14 +3,46 @@
 use warnings;
 use strict;
 
+use Getopt::Long;
+
 require '/Users/rhys/scripts/dmachine/private/share.pl';
+
+my $exe = $0;
 
 our $CM;
 our $user;
 our $display;
 
+sub usage {
+    return "Usage: $exe create -n NAME [-c CMD] [-i]\n";
+}
+
+my $containerName;
+my $cmd = 'bash';
+my $interactive = 0;
+
+GetOptions (
+            'name|n=s' => \$containerName,
+            'cmd|c=s' => \$cmd,
+            'interactive|i' => \$interactive
+            ) or die 'Error in CLI args\n';
+
+die usage() unless defined($containerName);
+
 sub getIp {
 	return 'host.docker.internal';
+}
+
+sub isRunning {
+    my ($name) = @_;
+    
+    my $status = `$CM inspect --type container $name --format '{{.State.Status}}'`;
+        
+    if($status =~ /running/){
+        return 1;
+    }
+        
+    0;
 }
 
 sub enter {
@@ -19,22 +51,14 @@ sub enter {
 	my $ip = getIp();
 
 	my $it = $interactive? '-it' : '';
+    
+    system "$CM start $name" unless isRunning $name;
 
 	my $cmd = "$CM exec --user $user -e DISPLAY=$ip:$display $it $name $toRun";
 
 	print "$cmd\n";
 
 	system $cmd;
-}
-
-my $containerName = shift or die "Usage: $0 CONTAINER";
-my $cmd = shift;
-
-my $interactive = 0;
-
-if(!$cmd){
-	$cmd='bash';
-	$interactive = 1;
 }
 
 enter $containerName, $cmd, $interactive;

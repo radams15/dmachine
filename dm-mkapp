@@ -4,6 +4,7 @@ use warnings;
 use strict;
 
 use File::Path;
+use Getopt::Long;
 
 my $BASE = '/Users/rhys/scripts/dmachine/';
 
@@ -14,6 +15,22 @@ our $user;
 our $display;
 
 my $exe = $0;
+
+sub usage {
+    return "USAGE: $exe -n CONTAINER -c COMMAND -o APP_NAME";
+}
+
+my $container;
+my $command;
+my $name;
+
+GetOptions (
+            'name|n=s' => \$container,
+            'command|c=s' => \$command,
+            'output|o=s' => \$name
+            ) or die 'Error in CLI args\n';
+
+die usage() unless defined($container) and defined($command) and defined($name);
 
 sub read_template {
 	my ($template, $name) = @_;
@@ -46,18 +63,10 @@ sub make {
 
 	write_str("$path/$name.app/Contents/Info.plist", read_template("$BASE/private/Info.plist.template", $name));
 	
-	my $launcherScript = "#!/bin/bash\n$BASE/dm-enter $container '$command'&";
+	my $launcherScript = "#!/bin/bash\n$BASE/dm-enter -n $container -c '$command' &";
 
 	write_str("$path/$name.app/Contents/MacOS/run", $launcherScript);
 	`chmod +x '$path/$name.app/Contents/MacOS/run'`;
 }
-
-sub usage {
-	return "USAGE: $exe CONTAINER COMMAND APP_NAME";
-}
-
-my $container = shift or die usage();
-my $command = shift or die usage();
-my $name = shift or die usage(); 
 
 make $container, '.', $name, $command;
