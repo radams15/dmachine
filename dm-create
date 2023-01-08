@@ -3,22 +3,54 @@
 use warnings;
 use strict;
 
+use Getopt::Long;
+
 require '/Users/rhys/scripts/dmachine/private/share.pl';
+
+my $exe = $0;
 
 our $CM;
 our $user;
 
+
+my $containerName;
+my $imageName;
+my $homeDir = "/Users/$user";
+my $dryRun = 0;
 my $hostname = `hostname`;
+
+sub usage {
+    return "Usage: $exe create -n NAME -i IMAGE\n";
+}
+
+GetOptions(
+           'name|n=s' => \$containerName,
+           'image|i=s' => \$imageName,
+           'home|b=s' => \$homeDir,
+           'hostname|d=s' => \$hostname,
+           'help|h' => sub {print usage(); exit;}
+           ) or die 'Error in CLI args\n';
+
+die usage() if !defined($containerName) or !defined($imageName);
+
 chomp $hostname;
 
-my $exe = $0;
+sub checkedSystem {
+    print @_, "\n";
+    
+    if(! $dryRun){
+        return system(@_);
+    }
+}
 
 sub getInstallCmds {
 	my ($image) = @_;
 
 	if ($image =~ /rocky.*/ || $image =~ /fedora.*/){
 		return ('dnf', '--version', 'upgrade -y', 'install -y');
-	}
+	} elsif ($image =~ /alpine.*/){
+        return ('apk', 'update', 'upgrade', 'add');
+    }
 
 	return ('apt-get', 'update', 'upgrade -y', 'install -y');
 }
@@ -28,32 +60,22 @@ sub init {
 
 	my $cmd = "$CM start $name";
 	
-	print "$cmd\n";
-	system $cmd;
+    checkedSystem $cmd;
 
 	my ($packageManager, $updateCmd, $upgradeCmd, $installCmd) = getInstallCmds($image);
 
-	$cmd = "$CM exec $name sh -c '$packageManager $updateCmd ; $packageManager $upgradeCmd ;$packageManager $installCmd xterm sudo systemd; adduser $user ; echo \"$user ALL=(ALL) NOPASSWD:ALL\" >> /etc/sudoers'";
+	$cmd = "$CM exec $name sh -c '$packageManager $updateCmd ; $packageManager $upgradeCmd ;$packageManager $installCmd xterm sudo systemd; useradd $user ; echo \"$user ALL=(ALL) NOPASSWD:ALL\" >> /etc/sudoers'";
 	
-	print "$cmd\n";
-	system $cmd;
+    checkedSystem $cmd;
 }
 
 sub create {
-	my ($name, $image) = @_;	
+	my ($name, $image, $home) = @_;
 
-	my $cmd = "$CM create --net host --hostname $hostname --name $name -v /Users/$user:/home/$user -v /var/run/docker.sock:/var/run/docker.sock -it $image";
+	my $cmd = "$CM create --net host --hostname $hostname --name $name -v $home:/home/$user -v /var/run/docker.sock:/var/run/docker.sock -it $image";
 
-	print "$cmd\n";
-	system $cmd;
+    checkedSystem $cmd;
 }
 
-sub usage {
-	return "Usage: $exe create NAME IMAGE\n";
-} 
-
-my $containerName = shift or die usage();
-my $imageName = shift or die usage();
-
-create $containerName, $imageName;
+create $containerName, $imageName, $homeDir;
 init $containerName, $imageName;
